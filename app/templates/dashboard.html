@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Voice Expense Logger</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <script src="{{ url_for('static', filename='libs/chart.min.js') }}"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Voice Expense Logger</h1>
+      <button id="logoutBtn">Logout</button>
+    </header>
+
+    <section id="recorder">
+      <h2>Expense Recorder</h2>
+      <button id="startRec">Start Recording</button>
+      <button id="stopRec" disabled>Stop</button>
+      <audio id="audioPlayback" controls></audio>
+      <div id="transcriptPreview"></div>
+      <button id="sendExpense" disabled>Send to Server</button>
+    </section>
+
+    <section id="goalRecorder">
+      <h2>Savings Goal Recorder</h2>
+      <button id="startGoalRec">Start Recording</button>
+      <button id="stopGoalRec" disabled>Stop</button>
+      <audio id="goalAudioPlayback" controls></audio>
+      <button id="sendGoal" disabled>Send Goal Update</button>
+    </section>
+
+    <section id="expensesList">
+      <h2>Expenses</h2>
+      <ul id="expensesUl"></ul>
+    </section>
+
+    <section id="goalsList">
+      <h2>Goals</h2>
+      <ul id="goalsUl"></ul>
+    </section>
+
+    <section id="analytics">
+      <h2>Analytics (Last 30 days)</h2>
+      <canvas id="categoryChart"></canvas>
+    </section>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/recorder.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

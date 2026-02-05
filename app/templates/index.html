@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Voice Expense Logger</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px}
+    .container{max-width:1200px;margin:0 auto}
+    .header{text-align:center;color:#fff;margin-bottom:30px}
+    .header h1{font-size:2.5em;margin-bottom:10px}
+    .nav-tabs{display:flex;gap:10px;margin-bottom:20px;background:#fff;padding:15px;border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,.1)}
+    .nav-tabs button{padding:10px 20px;border:none;background:#f0f0f0;cursor:pointer;border-radius:5px;font-weight:600;transition:all .3s}
+    .nav-tabs button.active{background:#667eea;color:#fff}
+    .tab-content{display:none;animation:fadeIn .3s}
+    .tab-content.active{display:block}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    .card{background:#fff;border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 4px 6px rgba(0,0,0,.1)}
+    .section-title{font-size:1.5em;color:#333;margin-bottom:15px;border-bottom:2px solid #667eea;padding-bottom:10px}
+    .recorder{display:flex;gap:10px;align-items:center;margin-bottom:20px}
+    .btn{padding:10px 20px;border:none;border-radius:5px;cursor:pointer;font-weight:600;transition:all .3s}
+    .btn-primary{background:#667eea;color:#fff}.btn-primary:hover{background:#5568d3}
+    .btn-danger{background:#e74c3c;color:#fff}.btn-danger:hover{background:#c0392b}
+    .btn-success{background:#27ae60;color:#fff}.btn-success:hover{background:#229954}
+    .recorder-status{padding:10px 15px;background:#ecf0f1;border-radius:5px;font-weight:600;color:#333}
+    .recorder-status.recording{background:#e74c3c;color:#fff;animation:pulse 1s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+    .list-item{background:#f8f9fa;padding:15px;border-left:4px solid #667eea;margin-bottom:10px;border-radius:5px;display:flex;justify-content:space-between;align-items:center}
+    .list-item-content{flex:1}
+    .list-item-header{font-weight:600;color:#333;margin-bottom:5px}
+    .list-item-detail{font-size:.9em;color:#666;margin:3px 0}
+    .badge{display:inline-block;padding:5px 10px;border-radius:20px;font-size:.85em;font-weight:600;margin-right:10px}
+    .badge-category{background:#3498db;color:#fff}
+    .badge-payment{background:#2ecc71;color:#fff}
+    .progress-bar{width:100%;height:10px;background:#ecf0f1;border-radius:10px;overflow:hidden;margin-top:10px}
+    .progress-fill{height:100%;background:linear-gradient(90deg,#667eea,#764ba2);transition:width .3s}
+    .notification{position:fixed;top:20px;right:20px;background:#fff;padding:15px 20px;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:1000;animation:slideIn .3s}
+    @keyframes slideIn{from{transform:translateX(400px)}to{transform:translateX(0)}}
+    .notification.success{border-left:4px solid #27ae60}
+    .notification.error{border-left:4px solid #e74c3c}
+    .chart-container{min-height:400px;margin-bottom:20px}
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px}
+    .stat-card{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:20px;border-radius:10px;text-align:center}
+    .stat-value{font-size:2em;font-weight:700;margin-bottom:5px}
+    .stat-label{font-size:.9em;opacity:.9}
+    .goal-form{background:#f8f9fa;padding:15px;border-radius:5px;margin-bottom:20px}
+    .form-group{margin-bottom:15px}
+    .form-group label{display:block;margin-bottom:5px;font-weight:600;color:#333}
+    .form-group input{width:100%;padding:10px;border:1px solid #ddd;border-radius:5px;font-size:1em}
+    .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center}
+    .modal.active{display:flex}
+    .modal-content{background:#fff;padding:30px;border-radius:10px;text-align:center;box-shadow:0 8px 16px rgba(0,0,0,.2)}
+    .modal-content h2{color:#27ae60;margin-bottom:15px;font-size:1.8em}
+    .empty-state{text-align:center;padding:40px;color:#999}
+    @media (max-width:768px){
+      .header h1{font-size:1.8em}
+      .nav-tabs{flex-wrap:wrap}
+      .stats-grid{grid-template-columns:1fr}
+      .list-item{flex-direction:column;align-items:flex-start}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎤 Voice Expense Logger</h1>
+      <p>Track expenses and savings goals with your voice</p>
+    </div>
+
+    <div class="nav-tabs">
+      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="expenses">Expenses</button>
+      <button class="tab-btn" data-tab="goals">Savings Goals</button>
+      <button class="tab-btn" data-tab="qa">Q&A</button>
+      <button class="tab-btn" data-tab="analytics">Analytics</button>
+      <button class="tab-btn" data-tab="login" style="margin-left:auto;">Login</button>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="tab-content active">
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="card">
+        <h2 class="section-title">Quick Actions</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+          <button class="btn btn-primary" onclick="switchTab('expenses')">📊 Log Expense</button>
+          <button class="btn btn-success" onclick="switchTab('goals')">🎯 Update Goal</button>
+          <button class="btn btn-primary" onclick="switchTab('analytics')">📈 View Analytics</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2 class="section-title">Recent Expenses</h2>
+        <div id="recentExpenses"></div>
+      </div>
+    </div>
+
+    <!-- Expenses -->
+    <div id="expenses" class="tab-content">
+      <div class="card">
+        <h2 class="section-title">Log Expense via Voice</h2>
+        <div class="recorder">
+          <button class="btn btn-primary" id="startExpenseBtn" onclick="startExpenseRecording()">🎙️ Start Recording</button>
+          <button class="btn btn-danger" id="stopExpenseBtn" onclick="stopExpenseRecording()" style="display:none;">⛔ Stop</button>
+          <div class="recorder-status" id="expenseStatus">Ready</div>
+        </div>
+        <div id="expenseForm" class="goal-form">
+          <div class="form-group">
+            <label>Or manually enter expense:</label>
+            <input type="text" id="manualExpenseText" placeholder="E.g., I spent 500 on pizza via Google Pay"/>
+            <button class="btn btn-primary" style="margin-top:10px" onclick="submitManualExpense()">Add Expense</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Recent Expenses</h2>
+        <div id="expensesList"></div>
+      </div>
+    </div>
+
+    <!-- Goals -->
+    <div id="goals" class="tab-content">
+      <div class="card">
+        <h2 class="section-title">Update Goal via Voice</h2>
+        <div class="recorder">
+          <button class="btn btn-success" id="startGoalBtn" onclick="startGoalRecording()">🎙️ Start Recording</button>
+          <button class="btn btn-danger" id="stopGoalBtn" onclick="stopGoalRecording()" style="display:none;">⛔ Stop</button>
+          <div class="recorder-status" id="goalStatus">Ready</div>
+        </div>
+
+        <div class="goal-form">
+          <h3 style="margin-bottom:15px;">Or create manually:</h3>
+          <div class="form-group">
+            <label>Goal Name:</label>
+            <input type="text" id="goalName" placeholder="E.g., Watch, Laptop, Bike"/>
+          </div>
+          <div class="form-group">
+            <label>Target Amount (₹):</label>
+            <input type="number" id="goalTarget" placeholder="E.g., 5000"/>
+          </div>
+          <button class="btn btn-success" onclick="createGoal()">Create Goal</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Your Savings Goals</h2>
+        <div id="goalsList"></div>
+      </div>
+    </div>
+
+    <!-- Q&A -->
+    <div id="qa" class="tab-content">
+      <div class="card">
+        <h2 class="section-title">Q&A</h2>
+        <p>Choose a question and click <strong>Ask</strong>. Results will be calculated from your expenses and goals.</p>
+        <div class="form-group">
+          <label>Question:</label>
+          <select id="qaSelect" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:5px;"></select>
+        </div>
+        <button class="btn btn-primary" onclick="askQuestion()">Ask</button>
+      </div>
+      <div id="qaResult"></div>
+    </div>
+
+    <!-- Analytics -->
+    <div id="analytics" class="tab-content">
+      <div class="card">
+        <h2 class="section-title">Spending Analytics</h2>
+        <div class="stats-grid" id="analyticsStats"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Category-wise Breakdown</h2>
+        <div class="chart-container" id="categoryChart"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Monthly Trend</h2>
+        <div class="chart-container" id="monthlyChart"></div>
+      </div>
+    </div>
+
+    <!-- Login -->
+    <div id="login" class="tab-content">
+      <div class="card">
+        <h2 class="section-title">Account</h2>
+        <div id="authContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Goal Completed Modal -->
+  <div id="goalModal" class="modal">
+    <div class="modal-content">
+      <h2>🎉 Goal Reached!</h2>
+      <p id="goalModalMessage"></p>
+      <button class="btn btn-success" onclick="document.getElementById('goalModal').classList.remove('active')">Awesome!</button>
+    </div>
+  </div>
+
+<script>/* =========================
+   Voice Expense Logger - script.js
+   ========================= */
+
+// Use same-origin API to avoid CORS issues
+const API_BASE = `${window.location.origin}/api`;
+
+let mediaRecorder;
+let audioChunks = [];
+let currentUser = null;
+
+/* ---------- Utilities ---------- */
+
+// Safely parse JSON; if the server returned HTML/text, surface that gracefully
+async function safeJson(res) {
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('application/json')) return await res.json();
+  const text = await res.text();
+  return { error: text.slice(0, 300) };
+}
+
+// Pick a recording MIME the browser actually supports
+function getSupportedMime() {
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/ogg',
+  ];
+  for (const c of candidates) {
+    try {
+      if (MediaRecorder.isTypeSupported(c)) return c;
+    } catch {}
+  }
+  return ''; // let browser choose default
+}
+const AUDIO_MIME = getSupportedMime();
+const AUDIO_EXT = AUDIO_MIME.includes('ogg') ? 'ogg' : 'webm';
+
+/* ---------- Tabs ---------- */
+
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+function switchTab(tab) {
+  // Special-case logout to avoid errors when nav button becomes 'Logout'
+  if (tab === 'logout') { return logout(); }
+
+  const target = document.getElementById(tab);
+  if (!target) return; // ignore unknown tabs safely
+
+  document.querySelectorAll('.tab-content').forEach((t) => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+  target.classList.add('active');
+  const btn = document.querySelector(`[data-tab="${tab}"]`);
+  if (btn) btn.classList.add('active');
+}
+
+/* ---------- Notifications & Modal ---------- */
+
+function showNotification(message, type = 'success') {
+  const n = document.createElement('div');
+  n.className = `notification ${type}`;
+  n.textContent = message;
+  document.body.appendChild(n);
+  setTimeout(() => {
+    n.style.animation = 'slideIn .3s reverse';
+    setTimeout(() => n.remove(), 300);
+  }, 3000);
+}
+
+function showGoalCompletedModal(msg) {
+  document.getElementById('goalModalMessage').textContent = msg;
+  document.getElementById('goalModal').classList.add('active');
+}
+
+/* ---------- Recording: Expenses ---------- */
+
+async function startExpenseRecording() {
+  audioChunks = [];
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = AUDIO_MIME ? new MediaRecorder(stream, { mimeType: AUDIO_MIME }) : new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+  mediaRecorder.start();
+
+  document.getElementById('startExpenseBtn').style.display = 'none';
+  document.getElementById('stopExpenseBtn').style.display = 'block';
+  document.getElementById('expenseStatus').textContent = 'Recording...';
+  document.getElementById('expenseStatus').classList.add('recording');
+}
+
+function stopExpenseRecording() {
+  mediaRecorder.stop();
+  document.getElementById('startExpenseBtn').style.display = 'block';
+  document.getElementById('stopExpenseBtn').style.display = 'none';
+  document.getElementById('expenseStatus').textContent = 'Processing...';
+  document.getElementById('expenseStatus').classList.remove('recording');
+
+  mediaRecorder.onstop = async () => {
+    // ✅ Use real MIME & extension (WebM/Opus by default)
+    const audioBlob = new Blob(audioChunks, { type: AUDIO_MIME || 'audio/webm' });
+    await submitExpenseAudio(audioBlob, `recording.${AUDIO_EXT}`);
+  };
+}
+
+/* ---------- Recording: Goals ---------- */
+
+async function startGoalRecording() {
+  audioChunks = [];
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = AUDIO_MIME ? new MediaRecorder(stream, { mimeType: AUDIO_MIME }) : new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+  mediaRecorder.start();
+
+  document.getElementById('startGoalBtn').style.display = 'none';
+  document.getElementById('stopGoalBtn').style.display = 'block';
+  document.getElementById('goalStatus').textContent = 'Recording...';
+  document.getElementById('goalStatus').classList.add('recording');
+}
+
+function stopGoalRecording() {
+  mediaRecorder.stop();
+  document.getElementById('startGoalBtn').style.display = 'block';
+  document.getElementById('stopGoalBtn').style.display = 'none';
+  document.getElementById('goalStatus').textContent = 'Processing...';
+  document.getElementById('goalStatus').classList.remove('recording');
+
+  mediaRecorder.onstop = async () => {
+    const audioBlob = new Blob(audioChunks, { type: AUDIO_MIME || 'audio/webm' });
+    await submitGoalAudio(audioBlob, `recording.${AUDIO_EXT}`);
+  };
+}
+
+/* ---------- Submit audio ---------- */
+
+async function submitExpenseAudio(audioBlob, filename) {
+  try {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, filename || 'recording.webm');
+
+    const res = await fetch(`${API_BASE}/expenses/upload-audio`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+    const data = await safeJson(res);
+
+    if (res.ok) {
+      showNotification(`Expense logged: ₹${data.expense.amount} - ${data.expense.category}`, 'success');
+      if (typeof loadExpenses === 'function') loadExpenses();
+      if (typeof loadDashboard === 'function') loadDashboard();
+      document.getElementById('expenseStatus').textContent = 'Ready';
+    } else {
+      showNotification(data.error || 'Failed to log expense', 'error');
+      document.getElementById('expenseStatus').textContent = 'Ready';
+    }
+  } catch (err) {
+    showNotification('Error: ' + err.message, 'error');
+    document.getElementById('expenseStatus').textContent = 'Ready';
+  }
+}
+
+// Submit Goal (audio) — replace your current function with this one
+async function submitGoalAudio(audioBlob){
+  try{
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.wav');
+
+    const res = await fetch(`${API_BASE}/goals/voice-update`, {
+      method:'POST',
+      credentials:'include',
+      body:formData
+    });
+
+    const data = await res.json();
+
+    if(res.ok){
+      // Prefer a positive toast first
+      const goalName = data.goal?.goal_name || 'goal';
+      showNotification(`Saved ₹${Math.round((data.saved_amount || 0) * 100)/100} to ${goalName}`, 'success');
+
+      // Then show completion / exceeded states from the backend
+      if (data.exceeded) {
+        const over = Math.round((data.over_by || 0) * 100) / 100;
+        showNotification(`Heads up: target exceeded by ₹${over}`, 'error');
+      } else if (data.goal_completed) {
+        showGoalCompletedModal('Your goal is complete! Time to reward yourself!');
+      }
+
+      // Refresh UI
+      loadGoals();
+      loadDashboard();
+      document.getElementById('goalStatus').textContent = 'Ready';
+    }else{
+      showNotification(data.error || 'Failed to update goal', 'error');
+      document.getElementById('goalStatus').textContent = 'Ready';
+    }
+  }catch(err){
+    showNotification('Error: ' + err.message, 'error');
+    document.getElementById('goalStatus').textContent = 'Ready';
+  }
+}
+
+
+/* ---------- Manual Expense ---------- */
+
+async function submitManualExpense() {
+  const text = document.getElementById('manualExpenseText').value;
+  if (!text.trim()) return showNotification('Please enter expense details', 'error');
+
+  try {
+    const res = await fetch(`${API_BASE}/expenses`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: text }),
+    });
+    const data = await safeJson(res);
+
+    if (res.ok) {
+      showNotification('Expense added successfully', 'success');
+      document.getElementById('manualExpenseText').value = '';
+      if (typeof loadExpenses === 'function') loadExpenses();
+      if (typeof loadDashboard === 'function') loadDashboard();
+    } else {
+      showNotification(data.error || 'Failed to add expense', 'error');
+    }
+  } catch (err) {
+    showNotification('Error: ' + err.message, 'error');
+  }
+}
+
+/* ---------- Expenses (list/delete) ---------- */
+
+async function loadExpenses() {
+  try {
+    const res = await fetch(`${API_BASE}/expenses?limit=50`, { credentials: 'include' });
+    const data = await safeJson(res);
+
+    if (res.ok && data.expenses.length > 0) {
+      let html = '';
+      data.expenses.slice(0, 10).forEach((exp) => {
+        const date = new Date(exp.timestamp).toLocaleDateString('en-IN', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        const category = exp.category || '—';
+        const payment = exp.payment_method || '—';
+
+        html += `
+          <div class="list-item">
+            <div class="list-item-content">
+              <div class="list-item-header">
+                <span class="badge badge-category">${category}</span>
+                <span class="badge badge-payment">${payment}</span>
+              </div>
+              <div class="list-item-detail">₹ ${exp.amount}</div>
+              <div class="list-item-detail">${exp.description || ''}</div>
+              <div class="list-item-detail" style="color:#999;font-size:.8em;">${date}</div>
+            </div>
+            <button class="btn btn-danger" onclick="deleteExpense('${exp._id}')" style="padding:5px 10px;">Delete</button>
+          </div>`;
+      });
+      document.getElementById('expensesList').innerHTML = html;
+      const recent = document.getElementById('recentExpenses');
+      if (recent) recent.innerHTML = html;
+    } else {
+      const empty = '<div class="empty-state">No expenses yet. Start recording to add expenses!</div>';
+      document.getElementById('expensesList').innerHTML = empty;
+      const recent = document.getElementById('recentExpenses');
+      if (recent) recent.innerHTML = empty;
+    }
+  } catch (err) {
+    console.error('Error loading expenses:', err);
+  }
+}
+
+async function deleteExpense(id) {
+  if (!confirm('Delete this expense?')) return;
+  try {
+    const res = await fetch(`${API_BASE}/expenses/${id}`, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) {
+      showNotification('Expense deleted', 'success');
+      if (typeof loadExpenses === 'function') loadExpenses();
+      if (typeof loadDashboard === 'function') loadDashboard();
+    } else {
+      showNotification('Failed to delete expense', 'error');
+    }
+  } catch (err) {
+    showNotification('Error: ' + err.message, 'error');
+  }
+}
+
+/* ---------- Goals (CRUD + list) ---------- */
+
+async function createGoal() {
+  const goalName = document.getElementById('goalName').value;
+  const goalTarget = document.getElementById('goalTarget').value;
+
+  if (!goalName || !goalTarget) return showNotification('Please fill all fields', 'error');
+
+  try {
+    const res = await fetch(`${API_BASE}/goals`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ goal_name: goalName, target_amount: parseFloat(goalTarget) }),
+    });
+    const data = await safeJson(res);
+
+    if (res.ok) {
+      showNotification('Goal created successfully', 'success');
+      document.getElementById('goalName').value = '';
+      document.getElementById('goalTarget').value = '';
+      if (typeof loadGoals === 'function') loadGoals();
+      if (typeof loadDashboard === 'function') loadDashboard();
+    } else {
+      showNotification(data.error || 'Failed to create goal', 'error');
+    }
+  } catch (err) {
+    showNotification('Error: ' + err.message, 'error');
+  }
+}
+
+async function loadGoals() {
+  try {
+    const res = await fetch(`${API_BASE}/goals`, { credentials: 'include' });
+    const data = await safeJson(res);
+
+    if (res.ok && data.goals.length > 0) {
+      let html = '';
+      data.goals.forEach((goal) => {
+        const saved = Number(goal.saved_amount || 0);
+        const target = Number(goal.target_amount || 0) || 1;
+        const progress = Math.min((saved / target) * 100, 100);
+
+        html += `
+          <div class="list-item">
+            <div class="list-item-content">
+              <div class="list-item-header">${goal.goal_name || goal.name}</div>
+              <div class="list-item-detail">Saved: ₹${saved} / ₹${target}</div>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width:${progress}%"></div>
+              </div>
+              <div class="list-item-detail" style="margin-top:5px;">
+                ${Math.round(progress)}% Complete ${goal.is_completed ? '✓' : ''}
+              </div>
+            </div>
+            <button class="btn btn-danger" onclick="deleteGoal('${goal._id}')" style="padding:5px 10px;">Delete</button>
+          </div>`;
+      });
+      const box = document.getElementById('goalsList');
+      if (box) box.innerHTML = html;
+    } else {
+      const box = document.getElementById('goalsList');
+      if (box) box.innerHTML = '<div class="empty-state">No goals yet. Create one to start saving!</div>';
+    }
+  } catch (err) {
+    console.error('Error loading goals:', err);
+  }
+}
+
+async function deleteGoal(id) {
+  if (!confirm('Delete this goal?')) return;
+  try {
+    const res = await fetch(`${API_BASE}/goals/${id}`, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) {
+      showNotification('Goal deleted', 'success');
+      if (typeof loadGoals === 'function') loadGoals();
+      if (typeof loadDashboard === 'function') loadDashboard();
+    } else {
+      showNotification('Failed to delete goal', 'error');
+    }
+  } catch (err) {
+    showNotification('Error: ' + err.message, 'error');
+  }
+}
+
+/* ---------- Dashboard & Analytics ---------- */
+
+async function loadDashboard() {
+  try {
+    const res = await fetch(`${API_BASE}/analytics/summary`, { credentials: 'include' });
+    const data = await safeJson(res);
+
+    if (res.ok) {
+      const stats = `
+        <div class="stat-card"><div class="stat-value">₹${Number(data.total_spent || 0).toFixed(2)}</div><div class="stat-label">Total Spent</div></div>
+        <div class="stat-card"><div class="stat-value">₹${Number(data.avg_expense || 0).toFixed(2)}</div><div class="stat-label">Avg Expense</div></div>
+        <div class="stat-card"><div class="stat-value">${Number(data.total_expenses || 0)}</div><div class="stat-label">Total Transactions</div></div>
+        <div class="stat-card"><div class="stat-value">₹${Number(data.total_saved || 0).toFixed(2)}</div><div class="stat-label">Total Saved</div></div>`;
+      const grid1 = document.getElementById('statsGrid');
+      const grid2 = document.getElementById('analyticsStats');
+      if (grid1) grid1.innerHTML = stats;
+      if (grid2) grid2.innerHTML = stats;
+    }
+  } catch (err) {
+    console.error('Error loading dashboard:', err);
+  }
+}
+
+async function loadAnalytics() {
+  try {
+    const catRes = await fetch(`${API_BASE}/analytics/category-wise`, { credentials: 'include' });
+    const cat = await safeJson(catRes);
+    if (catRes.ok && (cat.data || []).length > 0) {
+      Plotly.newPlot(
+        'categoryChart',
+        [{ labels: cat.data.map((d) => d._id), values: cat.data.map((d) => d.total), type: 'pie' }],
+        { title: 'Expenses by Category', font: { size: 12 } },
+        { responsive: true }
+      );
+    }
+
+    const mRes = await fetch(`${API_BASE}/analytics/month-wise`, { credentials: 'include' });
+    const mon = await safeJson(mRes);
+    if (mRes.ok && (mon.data || []).length > 0) {
+      Plotly.newPlot(
+        'monthlyChart',
+        [{ x: mon.data.map((d) => d._id), y: mon.data.map((d) => d.total), type: 'scatter', mode: 'lines+markers', fill: 'tozeroy' }],
+        { title: 'Monthly Spending Trend', xaxis: { title: 'Month' }, yaxis: { title: 'Amount (₹)' }, font: { size: 12 } },
+        { responsive: true }
+      );
+    }
+  } catch (err) {
+    console.error('Error loading analytics:', err);
+  }
+}
+
+/* ---------- Auth UI & actions ---------- */
+
+async function handleAuth() {
+  const el = document.getElementById('authContent');
+  if (!el) return;
+
+  if (currentUser) {
+    el.innerHTML = `
+      <p>Welcome, <strong>${currentUser.username || currentUser.email || currentUser.user_id}</strong></p>
+      <button class="btn btn-danger" onclick="logout()">Logout</button>`;
+  } else {
+    el.innerHTML = `
+      <div style="max-width:400px;margin:0 auto;">
+        <div style="margin-bottom:20px;">
+          <h3>Login</h3>
+          <input type="email" id="loginEmail" placeholder="Email" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ddd;border-radius:5px;">
+          <input type="password" id="loginPassword" placeholder="Password" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ddd;border-radius:5px;">
+          <button class="btn btn-primary" style="width:100%;" onclick="login()">Login</button>
+        </div>
+        <div>
+          <h3>Signup</h3>
+          <input type="text" id="signupUsername" placeholder="Username" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ddd;border-radius:5px;">
+          <input type="email" id="signupEmail" placeholder="Email" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ddd;border-radius:5px;">
+          <input type="password" id="signupPassword" placeholder="Password" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ddd;border-radius:5px;">
+          <button class="btn btn-success" style="width:100%;" onclick="signup()">Signup</button>
+        </div>
+      </div>`;
+  }
+
+  // Update navigation login/logout button to reflect auth state
+  updateNavAuth();
+}
+
+// Toggle the nav button between Login and Logout
+function updateNavAuth() {
+  const navBtn = document.querySelector('.tab-btn[data-tab="login"]');
+  if (!navBtn) return;
+  if (currentUser) {
+    navBtn.textContent = 'Logout';
+    navBtn.onclick = () => logout();
+    navBtn.dataset.tab = 'logout';
+  } else {
+    navBtn.textContent = 'Login';
+    navBtn.onclick = () => { window.location.href = '/login'; };
+    navBtn.dataset.tab = 'login';
+  }
+}
+
+function logout() {
+  fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).then(() => {
+    currentUser = null;
+    showNotification('Logged out', 'success');
+    handleAuth();
+    // After logout, go to the dedicated login page
+    window.location.href = '/login';
+  });
+}
+
+async function login() {
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (res.ok) {
+      currentUser = { email };
+      showNotification('Login successful', 'success');
+      handleAuth();
+      if (typeof loadDashboard === 'function') loadDashboard();
+      if (typeof loadExpenses === 'function') loadExpenses();
+      if (typeof loadGoals === 'function') loadGoals();
+    } else {
+      const data = await safeJson(res);
+      showNotification(data.error || 'Invalid credentials', 'error');
+    }
+  } catch (err) {
+    showNotification('Error: ' + err.message, 'error');
+  }
+}
+
+async function signup() {
+  const username = document.getElementById('signupUsername').value;
+  const email = document.getElementById('signupEmail').value;
+  const password = document.getElementById('signupPassword').value;
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/signup`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password }),
+    });
+
+    if (res.ok) {
+      currentUser = { username };
+      showNotification('Signup successful', 'success');
+      handleAuth();
+      if (typeof loadDashboard === 'function') loadDashboard();
+    } else {
+      const data = await safeJson(res);
+      showNotification(data.error || 'Signup failed', 'error');
+    }
+  } catch (err) {
+    showNotification('Error: ' + err.message, 'error');
+  }
+}
+
+function logout() {
+  fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).then(() => {
+    currentUser = null;
+    showNotification('Logged out', 'success');
+    handleAuth();
+  });
+}
+
+/* ---------- Q&A ---------- */
+const QA_QUESTIONS = [
+  "How much did I spend today?",
+  "How much did I spend this week?",
+  "How much did I spend this month?",
+  "How much did I spend on Food?",
+  "How much did I spend on Food this month?",
+  "What is my highest spending category?",
+  "What is my lowest spending category?",
+  "How much did I spend using UPI?",
+  "How much did I spend using Cash?",
+  "What was my biggest expense?",
+  "What was my smallest expense?",
+  "How many expenses did I log this month?",
+  "What day did I spend the most money?",
+  "What is my average daily spending this month?",
+  "How much have I saved towards my goal?",
+  "How much amount is left to achieve my goal?",
+  "What is my current goal?",
+  "Is my goal completed?",
+  "Show my recent 5 expenses",
+  "How much did I spend this year?",
+];
+
+function populateQA() {
+  const sel = document.getElementById('qaSelect');
+  if (!sel) return;
+  QA_QUESTIONS.forEach((q, i) => {
+    const opt = document.createElement('option');
+    opt.value = (i + 1).toString();
+    opt.textContent = `${i + 1}. ${q}`;
+    sel.appendChild(opt);
+  });
+}
+
+async function askQuestion() {
+  const sel = document.getElementById('qaSelect');
+  const q = parseInt(sel.value || '0');
+  const out = document.getElementById('qaResult');
+  if (!q) return showNotification('Select a question first', 'error');
+
+  try {
+    const res = await fetch(`${API_BASE}/qa`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question_id: q }),
+    });
+    const data = await safeJson(res);
+
+    if (res.ok) {
+      out.innerHTML = `<div class="card"><h3>${data.answer}</h3></div>`;
+    } else {
+      out.innerHTML = `<div class="card"><h3 style="color:#e74c3c">${data.error || 'Error'}</h3></div>`;
+    }
+  } catch (err) {
+    out.innerHTML = `<div class="card"><h3 style="color:#e74c3c">Error: ${err.message}</h3></div>`;
+  }
+}
+
+/* ---------- Init ---------- */
+
+async function init() {
+  // Check server session early. If not authenticated, redirect to landing/login page.
+  try {
+    const r = await fetch('/api/auth/me', { credentials: 'include' });
+    const d = await r.json();
+    if (!d || !d.user_id) {
+      // Not authenticated: show dedicated login page
+      window.location.href = '/login';
+      return;
+    }
+    // We have a logged-in user; set basic identity
+    currentUser = { user_id: d.user_id };
+  } catch (e) {
+    // If check fails, send user to dedicated login page
+    window.location.href = '/login';
+    return;
+  }
+
+  handleAuth();
+  if (typeof loadDashboard === 'function') loadDashboard();
+  if (typeof loadExpenses === 'function') loadExpenses();
+  if (typeof loadGoals === 'function') loadGoals();
+
+  // populate QA list
+  populateQA();
+
+  // Lazy-load analytics when the user opens the tab
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    if (btn.dataset.tab === 'analytics') {
+      btn.addEventListener('click', loadAnalytics);
+    }
+  });
+}
+init();
+
+/* ---------- Expose functions globally (handlers in HTML need these) ---------- */
+Object.assign(window, {
+  // Tabs
+  switchTab,
+  // Recording
+  startExpenseRecording,
+  stopExpenseRecording,
+  startGoalRecording,
+  stopGoalRecording,
+  // Submitters
+  submitExpenseAudio,
+  submitGoalAudio,
+  submitManualExpense,
+  // Expenses
+  loadExpenses,
+  deleteExpense,
+  // Goals
+  createGoal,
+  loadGoals,
+  deleteGoal,
+  // Dashboard / Analytics
+  loadDashboard,
+  loadAnalytics,
+  // Auth
+  handleAuth,
+  login,
+  signup,
+  logout,
+  // Utils (optional)
+  showNotification,
+});
+</script>
+</body>
+</html>

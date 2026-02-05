@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Welcome | Voice Expense Logger</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <style>
+    /* 1. Centering the entire hero on the page */
+    body { 
+      background: linear-gradient(135deg,#667eea 0%,#393371 100%); 
+      color: #fff; 
+      min-height: 100vh; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* 2. Container sizing - restricts width for a "card" look */
+    .hero { 
+      width: 100%; 
+      max-width: 420px; 
+      padding: 20px; 
+    }
+
+    /* 3. The Center Card - matches your original style logic */
+    .hero .center {
+      background: rgba(41, 46, 64, 0.06); 
+      padding: 40px 32px; 
+      border-radius: 12px; 
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+      text-align: center;
+      backdrop-filter: blur(10px); /* Optional: adds a modern frosted glass effect */
+    }
+
+    .logo { font-size:1.6rem; font-weight:700; letter-spacing:0.4px; margin-bottom:12px }
+    h2 { font-size:1.8rem; margin:0 0 8px }
+    
+    /* Corrected text color for dark background */
+    p.lead-text { opacity:0.85; margin-bottom:24px; font-size: 1rem; color: #fff; }
+
+    /* 4. Form Alignments */
+    form { display: flex; flex-direction: column; }
+    
+    input[type="email"], input[type="password"] {
+      width: 100%;
+      padding: 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      background: rgba(0, 0, 0, 0.642);
+      color: #fff;
+      margin-bottom: 16px;
+      box-sizing: border-box; /* Ensures padding doesn't break width */
+      font-size: 1rem;
+    }
+
+    button.login-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 8px;
+      border: none;
+      background: #27ae60;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.3s ease;
+    }
+    
+    button.login-btn:hover { background: #219150; }
+
+    .alt { text-align:center; margin-top:20px; color:rgba(255,255,255,0.85) }
+    a.signup { color:#ffd166; font-weight:700; text-decoration: none; }
+    a.signup:hover { text-decoration: underline; }
+
+    #loginMessage { margin-top:12px; color:#ffd166; font-weight:700; min-height: 1.2em; }
+
+    /* Responsive adjustments */
+    @media (max-width: 480px) {
+      .hero { padding: 10px; }
+      .hero .center { padding: 30px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="hero">
+    <div class="center" role="region" aria-label="Login">
+      <div class="logo">Voice Expense Tracker</div>
+      <h2>Welcome!!!</h2>
+      <p class="lead-text">Sign in to access your dashboard</p>
+
+      <form id="loginForm">
+        <b><input type="email" id="email" placeholder="Email" required /></b>
+        <b><input type="password" id="password" placeholder="Password" required /></b>  
+        <button class="login-btn" type="submit">Log in</button>
+      </form>
+
+      <div class="alt">
+        <p>New here? <a class="signup" href="/signup">Create an account</a></p>
+        <p id="loginMessage"></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // Authentication check
+  (async function(){
+    try{
+      const r = await fetch('/api/auth/me', {credentials: 'include'});
+      const d = await r.json();
+      if (d && d.user_id) {
+        window.location.href = '/';
+      }
+    }catch(e){ /* ignore */ }
+  })();
+
+  // Login handler
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const msg = document.getElementById('loginMessage');
+
+    try{
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        msg.textContent = 'Login successful — redirecting...';
+        setTimeout(() => { window.location.href = '/'; }, 700);
+      } else {
+        msg.textContent = data.error || 'Login failed';
+      }
+    }catch(err){
+      msg.textContent = 'Server unreachable';
+    }
+  });
+  </script>
+</body>
+</html>
