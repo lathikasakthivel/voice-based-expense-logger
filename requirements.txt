@@ -14,7 +14,8 @@ astunparse==1.6.3
 async-timeout==5.0.1
 attrs==25.3.0
 audioread==3.0.1
-av==14.4.0
+openai-whisper
+ffmpeg-python
 babel==2.17.0
 bangla==0.0.5
 bidict==0.23.1
@@ -141,7 +142,6 @@ num2words==0.5.14
 numba==0.60.0
 numpy==1.24.0
 openai==0.28.1
-openai-whisper @ git+https://github.com/openai/whisper.git@c0d2f624c09dc18e709e37c2ad90c039a4eb72a2
 opencv-contrib-python==4.11.0.86
 opencv-python==4.11.0.86
 opt_einsum==3.4.0
